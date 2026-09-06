@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { ImageAsset } from "../imageAssets";
 import { themes } from "../themes/themes";
 import { backupFormat, backupVersion, createCompleteBackup, readCompleteBackup } from "./backup";
+import { defaultWordExportSettings } from "./word";
 
 const article = {
   id: "article-1",
@@ -23,12 +24,20 @@ const asset: ImageAsset = {
   alt: "图片",
   createdAt: "2026-07-22T00:00:00.000Z",
 };
+const trashedArticle = {
+  id: "article-trash",
+  title: "已删除文章",
+  markdown: "# 已删除文章",
+  updatedAt: "2026-07-21T00:00:00.000Z",
+  deletedAt: "2026-07-22T00:00:00.000Z",
+};
 
 describe("complete ZIP backup", () => {
   it("round-trips articles, history, settings and images", async () => {
     const bytes = await createCompleteBackup(
       {
         articles: [article],
+        trash: [trashedArticle],
         history: [{ id: "version-1", articleId: article.id, title: article.title, markdown: article.markdown, savedAt: article.updatedAt }],
         assets: [asset],
         settings: {
@@ -36,6 +45,7 @@ describe("complete ZIP backup", () => {
           syncScroll: false,
           outlineOpen: true,
           customThemes: [{ ...themes[1], id: "custom-team", name: "团队主题" }],
+          wordExportSettings: { ...defaultWordExportSettings, includeToc: true },
         },
       },
       "0.2.0",
@@ -44,10 +54,12 @@ describe("complete ZIP backup", () => {
     expect(restored.manifest.format).toBe(backupFormat);
     expect(restored.manifest.version).toBe(backupVersion);
     expect(restored.articles).toEqual([article]);
+    expect(restored.trash).toEqual([trashedArticle]);
     expect(restored.history).toHaveLength(1);
     expect(restored.settings.themeId).toBe("custom-team");
     expect(restored.settings.customThemes).toHaveLength(1);
     expect(restored.settings.customThemes[0].name).toBe("团队主题");
+    expect(restored.settings.wordExportSettings.includeToc).toBe(true);
     expect(restored.assets[0].id).toBe(asset.id);
     expect(new Uint8Array(await restored.assets[0].blob.arrayBuffer())).toEqual(new Uint8Array([137, 80, 78, 71]));
   });
@@ -56,9 +68,16 @@ describe("complete ZIP backup", () => {
     const bytes = await createCompleteBackup(
       {
         articles: [article],
+        trash: [],
         history: [],
         assets: [],
-        settings: { themeId: "wechat", syncScroll: true, outlineOpen: true, customThemes: [] },
+        settings: {
+          themeId: "wechat",
+          syncScroll: true,
+          outlineOpen: true,
+          customThemes: [],
+          wordExportSettings: defaultWordExportSettings,
+        },
       },
       "0.2.0",
     );
@@ -74,9 +93,16 @@ describe("complete ZIP backup", () => {
     const bytes = await createCompleteBackup(
       {
         articles: [article],
+        trash: [],
         history: [],
         assets: [],
-        settings: { themeId: "wechat", syncScroll: true, outlineOpen: true, customThemes: [] },
+        settings: {
+          themeId: "wechat",
+          syncScroll: true,
+          outlineOpen: true,
+          customThemes: [],
+          wordExportSettings: defaultWordExportSettings,
+        },
       },
       "0.2.0",
     );
@@ -90,15 +116,24 @@ describe("complete ZIP backup", () => {
     expect(restored.articles).toEqual([article]);
     expect(restored.manifest.version).toBe(2);
     expect(restored.settings.customThemes).toEqual([]);
+    expect(restored.settings.wordExportSettings).toEqual(defaultWordExportSettings);
+    expect(restored.trash).toEqual([]);
   });
 
   it("rejects a payload whose SHA-256 no longer matches the manifest", async () => {
     const bytes = await createCompleteBackup(
       {
         articles: [article],
+        trash: [],
         history: [],
         assets: [],
-        settings: { themeId: "wechat", syncScroll: true, outlineOpen: true, customThemes: [] },
+        settings: {
+          themeId: "wechat",
+          syncScroll: true,
+          outlineOpen: true,
+          customThemes: [],
+          wordExportSettings: defaultWordExportSettings,
+        },
       },
       "0.2.0",
     );
@@ -113,9 +148,16 @@ describe("complete ZIP backup", () => {
     const bytes = await createCompleteBackup(
       {
         articles: [article],
+        trash: [],
         history: [],
         assets: [],
-        settings: { themeId: "wechat", syncScroll: true, outlineOpen: true, customThemes: [] },
+        settings: {
+          themeId: "wechat",
+          syncScroll: true,
+          outlineOpen: true,
+          customThemes: [],
+          wordExportSettings: defaultWordExportSettings,
+        },
       },
       "0.2.0",
     );

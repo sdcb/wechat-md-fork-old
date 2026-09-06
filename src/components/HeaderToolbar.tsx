@@ -16,11 +16,15 @@ type HeaderToolbarProps = {
   onImportMarkdown: (event: ChangeEvent<HTMLInputElement>) => void;
   onExportMarkdown: () => void;
   onDeleteArticle: () => void;
+  onDuplicateArticle: () => void | Promise<void>;
+  onOpenStorage: () => void;
   onExportLibrary: () => void;
   onImportLibrary: (event: ChangeEvent<HTMLInputElement>) => void;
   onExportBackup: () => void;
   onImportBackup: (event: ChangeEvent<HTMLInputElement>) => void;
   onExportHtml: () => void;
+  onExportWord: () => void | Promise<void>;
+  wordExporting: boolean;
   onPrint: () => void;
   onCopy: () => void;
 };
@@ -53,7 +57,13 @@ export function HeaderToolbar(props: HeaderToolbarProps) {
           {props.markdownMessage === "已导出" ? "已导出" : "导出 .md"}
         </button>
         <button className="ghostButton" type="button" onClick={props.onDeleteArticle} disabled={!props.activeId}>
-          删除文章
+          移入回收站
+        </button>
+        <button className="ghostButton" type="button" onClick={() => void props.onDuplicateArticle()} disabled={!props.activeId}>
+          复制文章
+        </button>
+        <button className="ghostButton" type="button" onClick={props.onOpenStorage}>
+          存储空间
         </button>
         <button className="ghostButton" type="button" onClick={props.onExportLibrary}>
           {props.libraryMessage || "导出 JSON"}
@@ -64,6 +74,9 @@ export function HeaderToolbar(props: HeaderToolbarProps) {
         <BackupPanel message={props.backupMessage} onExport={props.onExportBackup} onImport={props.onImportBackup} />
         <button className="ghostButton" type="button" onClick={props.onExportHtml}>
           导出 HTML
+        </button>
+        <button className="ghostButton" type="button" disabled={props.wordExporting} onClick={() => void props.onExportWord()}>
+          {props.wordExporting ? "正在导出 Word…" : "导出 Word"}
         </button>
         <button className="ghostButton" type="button" onClick={props.onPrint}>
           打印 / 保存 PDF

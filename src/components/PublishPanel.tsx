@@ -16,6 +16,8 @@ type PublishPanelProps = {
   themeMessage: string;
   onCopyField: (key: string, value: string) => void;
   onPrint: () => void;
+  onExportWord: () => void | Promise<void>;
+  wordExporting: boolean;
   onThemeChange: (themeId: string) => void;
   onCreateThemeDraft: () => Theme;
   onEditThemeDraft: () => Theme;
@@ -53,6 +55,9 @@ export function PublishPanel(props: PublishPanelProps) {
         <div className="sectionBlock">
           <h3>定稿存档</h3>
           <div className="fieldCopyGrid">
+            <button type="button" disabled={props.wordExporting} onClick={() => void props.onExportWord()}>
+              {props.wordExporting ? "正在导出 Word…" : "导出 Word"}
+            </button>
             <button type="button" onClick={props.onPrint}>
               打印 / 保存 PDF
             </button>
@@ -131,6 +136,7 @@ export function PublishPanel(props: PublishPanelProps) {
             className="visuallyHidden"
             type="file"
             accept="application/json,.json,.wechat-theme.json"
+            aria-label="选择主题文件"
             onChange={props.onImportTheme}
           />
           <p className="fieldHint">主题文件包含完整排版参数，可直接发给别人导入；不包含文章内容和图片。</p>

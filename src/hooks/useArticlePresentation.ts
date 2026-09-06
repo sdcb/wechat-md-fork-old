@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import type { ImageAsset } from "../imageAssets";
 import { getLocalAssetReferences } from "../markdown/assets";
@@ -13,6 +13,9 @@ import {
   stripMarkdown,
 } from "../markdown/renderMarkdown";
 import { openPrintPreview } from "../services/print";
+import { exportWordDocument, loadWordExportSettings, normalizeWordExportSettings, saveWordExportSettings } from "../services/word";
+import type { WordExportSettings } from "../services/word";
+import { exportWordCompatibleHtml } from "../services/wordHtml";
 import { useThemeLibrary } from "./useThemeLibrary";
 
 type UseArticlePresentationOptions = {
@@ -26,6 +29,10 @@ type UseArticlePresentationOptions = {
 
 export function useArticlePresentation(options: UseArticlePresentationOptions) {
   const themeLibrary = useThemeLibrary(options.onError);
+  const [wordExporting, setWordExporting] = useState(false);
+  const [wordHtmlExporting, setWordHtmlExporting] = useState(false);
+  const [wordExportOpen, setWordExportOpen] = useState(false);
+  const [wordSettings, setWordSettingsState] = useState(() => loadWordExportSettings(window.localStorage));
   const { theme } = themeLibrary;
   const outline = useMemo(() => getMarkdownOutline(options.markdown), [options.markdown]);
   const bodyHtml = useMemo(() => renderMarkdown(options.markdown, theme, options.assetUrls), [options.markdown, theme, options.assetUrls]);
@@ -62,6 +69,42 @@ export function useArticlePresentation(options: UseArticlePresentationOptions) {
       window.alert("打印预览窗口被浏览器拦截。请允许本站打开弹出窗口后重试。");
   }
 
+  function updateWordSettings(settings: WordExportSettings) {
+    const normalized = normalizeWordExportSettings(settings);
+    setWordSettingsState(normalized);
+    try {
+      saveWordExportSettings(window.localStorage, normalized);
+    } catch (error) {
+      options.onError(error instanceof Error ? `Word 设置保存失败：${error.message}` : "Word 设置保存失败。当前仍可继续导出。");
+    }
+  }
+
+  async function exportWord() {
+    if (wordExporting) return;
+    setWordExporting(true);
+    try {
+      await exportWordDocument({ title: options.title, bodyHtml, theme, settings: wordSettings });
+      setWordExportOpen(false);
+    } catch (error) {
+      options.onError(error instanceof Error ? `Word 导出失败：${error.message}` : "Word 导出失败。");
+    } finally {
+      setWordExporting(false);
+    }
+  }
+
+  async function exportWordHtml() {
+    if (wordHtmlExporting) return;
+    setWordHtmlExporting(true);
+    try {
+      await exportWordCompatibleHtml({ title: options.title, bodyHtml, theme, settings: wordSettings });
+      setWordExportOpen(false);
+    } catch (error) {
+      options.onError(error instanceof Error ? `Word 兼容 HTML 导出失败：${error.message}` : "Word 兼容 HTML 导出失败。");
+    } finally {
+      setWordHtmlExporting(false);
+    }
+  }
+
   return {
     ...themeLibrary,
     outline,
@@ -77,5 +120,13 @@ export function useArticlePresentation(options: UseArticlePresentationOptions) {
     themeVars,
     exportHtml,
     printOrSavePdf,
+    exportWord,
+    wordExporting,
+    wordHtmlExporting,
+    exportWordHtml,
+    wordExportOpen,
+    setWordExportOpen,
+    wordSettings,
+    updateWordSettings,
   };
 }
