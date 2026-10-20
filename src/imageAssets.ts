@@ -1,5 +1,3 @@
-import { getLocalAssetReferences } from "./markdown/assets";
-
 export type ImageAsset = {
   id: string;
   articleId: string;
@@ -26,7 +24,7 @@ let databasePromise: Promise<IDBDatabase> | null = null;
 
 export function describeStorageError(error: unknown, action = "图片素材操作") {
   const name = error instanceof DOMException ? error.name : "";
-  if (name === "QuotaExceededError") return `${action}失败：浏览器存储空间不足。请导出完整 ZIP 备份并清理不再使用的图片。`;
+  if (name === "QuotaExceededError") return `${action}失败：浏览器存储空间不足。请删除不再使用的图片后重试。`;
   if (name === "InvalidStateError" || name === "NotFoundError") return `${action}失败：图片数据库状态异常，请刷新页面后重试。`;
   if (name === "SecurityError") return `${action}失败：当前浏览器禁止本地存储，请检查隐私或无痕模式设置。`;
   if (error instanceof Error && error.message) return `${action}失败：${error.message}`;
@@ -72,15 +70,6 @@ function waitForTransaction(transaction: IDBTransaction) {
   });
 }
 
-export async function getArticleImageAssets(articleId: string) {
-  if (!articleId) return [];
-  const database = await openDatabase();
-  const transaction = database.transaction(storeName, "readonly");
-  const request = transaction.objectStore(storeName).index("articleId").getAll(articleId);
-  const assets = (await waitForRequest(request)) as ImageAsset[];
-  return assets.sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
-}
-
 export async function getAllImageAssets() {
   const database = await openDatabase();
   const transaction = database.transaction(storeName, "readonly");
@@ -99,54 +88,6 @@ export async function deleteImageAsset(id: string) {
   const transaction = database.transaction(storeName, "readwrite");
   const request = transaction.objectStore(storeName).delete(id);
   await Promise.all([waitForRequest(request), waitForTransaction(transaction)]);
-}
-
-export async function deleteArticleImageAssets(articleId: string) {
-  const assets = await getArticleImageAssets(articleId);
-  await Promise.all(assets.map((asset) => deleteImageAsset(asset.id)));
-}
-
-export async function replaceAllImageAssets(assets: ImageAsset[]) {
-  const database = await openDatabase();
-  const transaction = database.transaction(storeName, "readwrite");
-  const store = transaction.objectStore(storeName);
-  store.clear();
-  assets.forEach((asset) => store.put(asset));
-  await waitForTransaction(transaction);
-}
-
-export async function deleteUnusedImageAssets(referencedIds: Set<string>) {
-  const assets = await getAllImageAssets();
-  const unused = assets.filter((asset) => !referencedIds.has(asset.id));
-  await Promise.all(unused.map((asset) => deleteImageAsset(asset.id)));
-  return unused.length;
-}
-
-export async function cloneArticleImageAssets(sourceArticleId: string, targetArticleId: string, markdown: string) {
-  const referencedIds = new Set(getLocalAssetReferences(markdown).map((reference) => reference.id));
-  const assets = (await getArticleImageAssets(sourceArticleId)).filter((asset) => referencedIds.has(asset.id));
-  let clonedMarkdown = markdown;
-  const clonedAssets: ImageAsset[] = [];
-  try {
-    for (const asset of assets) {
-      const id = buildAssetId();
-      const cloned: ImageAsset = {
-        ...asset,
-        id,
-        articleId: targetArticleId,
-        name: outputName(asset.name, id, asset.type),
-        blob: asset.blob.slice(0, asset.blob.size, asset.type),
-        createdAt: new Date().toISOString(),
-      };
-      await putImageAsset(cloned);
-      clonedAssets.push(cloned);
-      clonedMarkdown = clonedMarkdown.split(`asset://${asset.id}`).join(`asset://${id}`);
-    }
-  } catch (error) {
-    await Promise.all(clonedAssets.map((asset) => deleteImageAsset(asset.id))).catch(() => undefined);
-    throw error;
-  }
-  return { markdown: clonedMarkdown, assets: clonedAssets };
 }
 
 function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality?: number) {

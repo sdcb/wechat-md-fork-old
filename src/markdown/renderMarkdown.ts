@@ -89,9 +89,8 @@ export function renderMarkdown(markdown: string, theme: Theme, assetUrls: Record
     H5: getHeadingStyle(theme, "h5"),
     H6: getHeadingStyle(theme, "h6"),
   };
-  template.content.querySelectorAll<HTMLElement>("h1,h2,h3,h4,h5,h6").forEach((element, index) => {
+  template.content.querySelectorAll<HTMLElement>("h1,h2,h3,h4,h5,h6").forEach((element) => {
     element.setAttribute("style", headingStyles[element.tagName]);
-    element.dataset.outlineIndex = String(index);
   });
   const firstHeading = template.content.querySelector<HTMLElement>("h2");
   if (firstHeading && !firstHeading.previousElementSibling) firstHeading.style.marginTop = "0";
@@ -128,7 +127,7 @@ export function renderMarkdown(markdown: string, theme: Theme, assetUrls: Record
     .forEach((element) =>
       element.setAttribute(
         "style",
-        `padding:2px 6px;border-radius:4px;background:${theme.codeBg};color:${theme.heading};font-family:${codeFontFamily};font-size:90%;word-break:break-word;`,
+        `padding:2px 6px;border-radius:4px;background:${theme.inlineCodeBg ?? theme.codeBg};color:${theme.inlineCodeColor ?? theme.heading};font-family:${codeFontFamily};font-size:90%;word-break:break-word;`,
       ),
     );
   template.content.querySelectorAll<HTMLElement>("pre").forEach((element) => {
@@ -216,26 +215,26 @@ export function renderMarkdown(markdown: string, theme: Theme, assetUrls: Record
       "style",
       `display:block;max-width:100%;height:auto;margin:0 auto;border-radius:${theme.imageStyle === "square" ? 0 : theme.radius}px;border:${theme.imageStyle === "shadow" ? "0" : `1px solid ${theme.border}`};box-shadow:${theme.imageStyle === "shadow" ? "0 10px 28px rgba(15,23,42,.16)" : "none"};`,
     );
+    // WeChat's own editor stores images as <p><img></p>; <figure> wrappers get extra blank paragraphs around them.
     const parent = image.parentElement;
     if (parent?.tagName === "P" && parent.children.length === 1 && !(parent.textContent ?? "").trim()) {
-      const figure = document.createElement("figure");
-      figure.setAttribute("style", `margin:8px 0 ${theme.imageSpacing}px;`);
-      parent.replaceWith(figure);
-      figure.append(image);
+      parent.dataset.imageBlock = "";
+      parent.setAttribute("style", `margin:8px 0 ${image.alt ? 0 : theme.imageSpacing}px;text-align:center;line-height:0;text-indent:0;`);
       if (image.alt) {
-        const caption = document.createElement("figcaption");
+        const caption = document.createElement("p");
+        caption.dataset.imageCaption = "";
         caption.textContent = image.alt;
         caption.setAttribute(
           "style",
-          `margin-top:8px;text-align:${theme.imageCaptionAlign};color:${theme.muted};font-size:${theme.imageCaptionSize}px;line-height:1.6;`,
+          `margin:8px 0 ${theme.imageSpacing}px;text-align:${theme.imageCaptionAlign};color:${theme.muted};font-size:${theme.imageCaptionSize}px;line-height:1.6;text-indent:0;`,
         );
-        figure.append(caption);
+        parent.after(caption);
       }
     }
   });
 
   template.content.querySelectorAll<HTMLTableElement>("table").forEach((table) => {
-    table.setAttribute("style", "width:100%;min-width:480px;border-collapse:collapse;border-spacing:0;table-layout:auto;");
+    table.setAttribute("style", `width:100%;margin:8px 0 24px;border-collapse:collapse;border-spacing:0;table-layout:auto;`);
     table.querySelectorAll<HTMLTableCellElement>("th,td").forEach((cell) => {
       const alignment = cell.getAttribute("align") || "left";
       const header = cell.tagName === "TH";
@@ -252,10 +251,6 @@ export function renderMarkdown(markdown: string, theme: Theme, assetUrls: Record
           cell.style.background = theme.codeBg;
         });
     });
-    const wrapper = document.createElement("section");
-    wrapper.setAttribute("style", "margin:8px 0 24px;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;");
-    table.replaceWith(wrapper);
-    wrapper.append(table);
   });
 
   highlightCodeBlocks(template.content, theme);
@@ -276,38 +271,17 @@ function replaceLocalImagesWithIds(bodyHtml: string, theme: Theme) {
       `margin:8px 0 24px;padding:16px;border:1px dashed ${theme.border};border-radius:6px;background:${theme.accentSoft};color:${theme.heading};font-size:14px;line-height:1.7;text-align:center;`,
     );
     placeholder.innerHTML = `<strong style="display:block;margin-bottom:4px;">请上传图片：${escapeHtml(id)}</strong><span style="color:${theme.muted};font-size:12px;">${escapeHtml(alt || "无图片说明")}</span>`;
-    const figure = element.closest("figure");
-    (figure ?? element).replaceWith(placeholder);
+    const block = element.closest<HTMLElement>("[data-image-block]");
+    if (block?.nextElementSibling?.hasAttribute("data-image-caption")) block.nextElementSibling.remove();
+    (block ?? element).replaceWith(placeholder);
   });
-  template.content
-    .querySelectorAll<HTMLElement>("[data-outline-index]")
-    .forEach((element) => element.removeAttribute("data-outline-index"));
   return template.innerHTML;
 }
 
 export function buildCopyHtml(bodyHtml: string, theme: Theme) {
   const copyBody = replaceLocalImagesWithIds(bodyHtml, theme);
   const wechatBody = prepareWechatHtml(copyBody, theme);
-  return `<div style="max-width:677px;margin:0 auto;padding:8px 0 0;font-family:${getThemeFontFamily(theme)};">${wechatBody}</div>`;
-}
-
-export function buildExportHtml(title: string, bodyHtml: string, theme: Theme) {
-  const safeTitle = escapeHtml(title || "未命名文章");
-  const exportBody = replaceLocalImagesWithIds(bodyHtml, theme);
-  return `<!doctype html>
-<html lang="zh-CN">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${safeTitle}</title>
-</head>
-<body style="margin:0;background:#ffffff;">
-  <article style="max-width:677px;margin:0 auto;padding:32px 20px;font-family:${getThemeFontFamily(theme)};">
-    <h1 style="margin:0 0 28px;color:${theme.headings.h1.color};font-size:${theme.headings.h1.fontSize}px;line-height:1.35;font-weight:800;text-align:${theme.headings.h1.align};">${safeTitle}</h1>
-    ${exportBody}
-  </article>
-</body>
-</html>`;
+  return `<section style="max-width:677px;margin:0 auto;font-family:${getThemeFontFamily(theme)};">${wechatBody}</section>`;
 }
 
 export function buildCopyPlainText(markdown: string) {

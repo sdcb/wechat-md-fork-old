@@ -19,6 +19,8 @@ export type Theme = {
   muted: string;
   border: string;
   codeBg: string;
+  inlineCodeColor?: string;
+  inlineCodeBg?: string;
   fontFamily: "system" | "microsoft-yahei" | "pingfang" | "noto-sans" | "serif" | "songti" | "kaiti" | "fangsong" | "rounded" | "arial";
   bodyFontSize: number;
   bodyLineHeight: number;
@@ -34,10 +36,9 @@ export type Theme = {
   linkStyle: "underline" | "bottom-border" | "plain";
   blockquoteStyle: "left-bar" | "card" | "quote";
   codeStyle: "soft" | "dark" | "bordered";
-  codeHighlightTheme: "none" | "github" | "vscode";
+  codeHighlightTheme: "none" | "github" | "vscode" | "vs";
   codeFontSize: number;
   codeLineHeight: number;
-  codeCleanMode: "safe" | "compact";
   tableStyle: "soft-header" | "accent-header" | "minimal";
   imageStyle: "rounded" | "square" | "shadow";
   dividerStyle: "solid" | "dashed" | "dotted";
@@ -45,38 +46,4 @@ export type Theme = {
   imageCaptionAlign: "left" | "center" | "right";
   imageCaptionSize: number;
   radius: number;
-};
-
-export type Article = {
-  id: string;
-  title: string;
-  markdown: string;
-  updatedAt: string;
-  pinned?: boolean;
-};
-
-export type DeletedArticle = Article & {
-  deletedAt: string;
-};
-
-export type ArticleVersion = {
-  id: string;
-  articleId: string;
-  title: string;
-  markdown: string;
-  savedAt: string;
-};
-
-export type OutlineItem = {
-  level: number;
-  text: string;
-  position: number;
-  line: number;
-};
-
-export type PreflightIssue = {
-  id: string;
-  label: string;
-  detail: string;
-  status: "pass" | "warning" | "error";
 };

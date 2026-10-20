@@ -44,6 +44,60 @@ export function flattenNestedListsForWechat(root: DocumentFragment, theme: Theme
   });
 }
 
+const blockTags = new Set([
+  "ADDRESS",
+  "BLOCKQUOTE",
+  "DETAILS",
+  "DIV",
+  "DL",
+  "DD",
+  "DT",
+  "FIGCAPTION",
+  "FIGURE",
+  "H1",
+  "H2",
+  "H3",
+  "H4",
+  "H5",
+  "H6",
+  "HR",
+  "LI",
+  "OL",
+  "P",
+  "PRE",
+  "SECTION",
+  "SUMMARY",
+  "TABLE",
+  "TBODY",
+  "TD",
+  "TFOOT",
+  "TH",
+  "THEAD",
+  "TR",
+  "UL",
+]);
+
+function isBlock(node: Node | null) {
+  return node?.nodeType === Node.ELEMENT_NODE && blockTags.has((node as Element).tagName);
+}
+
+/**
+ * marked separates blocks with "\n" text nodes. The WeChat editor turns such text nodes next to
+ * images, tables and other non-paragraph blocks into empty paragraphs, i.e. visible blank lines.
+ */
+export function removeInterBlockWhitespace(root: ParentNode) {
+  const walker = document.createTreeWalker(root as Node, NodeFilter.SHOW_TEXT);
+  const removable: Text[] = [];
+  for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
+    if (/\S/.test(node.data) || node.parentElement?.closest("pre")) continue;
+    const parent = node.parentNode;
+    const parentIsBlock = !parent || parent.nodeType === Node.DOCUMENT_FRAGMENT_NODE || isBlock(parent);
+    const atBlockEdge = parentIsBlock && (!node.previousSibling || !node.nextSibling);
+    if (atBlockEdge || isBlock(node.previousSibling) || isBlock(node.nextSibling)) removable.push(node);
+  }
+  removable.forEach((node) => node.remove());
+}
+
 export function prepareWechatHtml(bodyHtml: string, theme: Theme) {
   const template = document.createElement("template");
   template.innerHTML = bodyHtml;
@@ -60,9 +114,10 @@ export function prepareWechatHtml(bodyHtml: string, theme: Theme) {
   });
   template.content.querySelectorAll<HTMLElement>("*").forEach((element) => {
     [...element.attributes]
-      .filter((attribute) => attribute.name.startsWith("data-code-"))
+      .filter((attribute) => attribute.name.startsWith("data-"))
       .forEach((attribute) => element.removeAttribute(attribute.name));
   });
   flattenNestedListsForWechat(template.content, theme);
+  removeInterBlockWhitespace(template.content);
   return template.innerHTML;
 }

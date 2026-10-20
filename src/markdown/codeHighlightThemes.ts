@@ -1,4 +1,4 @@
-export type CodeHighlightTheme = "none" | "github" | "vscode";
+export type CodeHighlightTheme = "none" | "github" | "vscode" | "vs";
 export const codeHighlightThemes: Record<Exclude<CodeHighlightTheme, "none">, Record<string, string>> = {
   github: {
     keyword: "#cf222e",
@@ -27,5 +27,20 @@ export const codeHighlightThemes: Record<Exclude<CodeHighlightTheme, "none">, Re
     tag: "#569cd6",
     attr: "#9cdcfe",
     regexp: "#d16969",
+  },
+  // Visual Studio light palette
+  vs: {
+    keyword: "#0000ff",
+    string: "#a31515",
+    number: "#098658",
+    comment: "#008000",
+    title: "#74531f",
+    built_in: "#2b91af",
+    type: "#2b91af",
+    variable: "#1f377f",
+    meta: "#808080",
+    tag: "#800000",
+    attr: "#e50000",
+    regexp: "#811f3f",
   },
 };

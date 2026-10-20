@@ -1,19 +1,19 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it } from "vitest";
-import { themes } from "../themes/themes";
+import { defaultTheme } from "../themes/themes";
 import { buildCopyHtml, renderMarkdown } from "./renderMarkdown";
 
 describe("Markdown rendering", () => {
   it("renders GFM tables with inline styles", () => {
-    const html = renderMarkdown("| 名称 | 值 |\n| --- | ---: |\n| 测试 | 1 |", themes[0]);
+    const html = renderMarkdown("| 名称 | 值 |\n| --- | ---: |\n| 测试 | 1 |", defaultTheme);
     expect(html).toContain("<table");
     expect(html).toContain("text-align:right");
   });
 
   it("copies local images as ID placeholders without Base64", () => {
-    const rendered = renderMarkdown("![封面](asset://IMG-COVER)", themes[0], { "IMG-COVER": "blob:http://localhost/image" });
-    const copied = buildCopyHtml(rendered, themes[0]);
+    const rendered = renderMarkdown("![封面](asset://IMG-COVER)", defaultTheme, { "IMG-COVER": "blob:http://localhost/image" });
+    const copied = buildCopyHtml(rendered, defaultTheme);
     expect(copied).toContain("请上传图片：IMG-COVER");
     expect(copied).not.toContain("blob:");
     expect(copied).not.toContain("base64");
@@ -21,10 +21,10 @@ describe("Markdown rendering", () => {
 
   it("applies structural settings from a custom theme", () => {
     const customTheme = {
-      ...themes[0],
+      ...defaultTheme,
       headings: {
-        ...themes[0].headings,
-        h2: { ...themes[0].headings.h2, decoration: "pill" as const },
+        ...defaultTheme.headings,
+        h2: { ...defaultTheme.headings.h2, decoration: "pill" as const },
       },
       blockquoteStyle: "quote" as const,
       codeStyle: "dark" as const,
@@ -49,7 +49,7 @@ describe("Markdown rendering", () => {
   it("keeps ASCII diagrams in a non-wrapping monospace code block", () => {
     const html = renderMarkdown(
       "```text\n             应用程序\n                 │\n             Stable C ABI\n                 │\n            PP-OCR Core\n```",
-      themes[0],
+      defaultTheme,
     );
     const template = document.createElement("template");
     template.innerHTML = html;
@@ -63,7 +63,7 @@ describe("Markdown rendering", () => {
   });
 
   it("highlights known fenced languages with inline token styles", () => {
-    const html = renderMarkdown("```javascript\nconst answer = 42;\n```", themes[0]);
+    const html = renderMarkdown("```javascript\nconst answer = 42;\n```", defaultTheme);
     const template = document.createElement("template");
     template.innerHTML = html;
     expect(template.content.querySelector("[data-code-language='javascript']")).not.toBeNull();
@@ -71,13 +71,13 @@ describe("Markdown rendering", () => {
   });
 
   it("leaves text blocks unhighlighted", () => {
-    const html = renderMarkdown("```text\nconst answer = 42;\n```", themes[0]);
+    const html = renderMarkdown("```text\nconst answer = 42;\n```", defaultTheme);
     expect(html).not.toContain("data-code-token");
   });
 
   it("applies expanded typography, heading and list settings", () => {
     const customTheme = {
-      ...themes[0],
+      ...defaultTheme,
       fontFamily: "microsoft-yahei" as const,
       bodyTextAlign: "justify" as const,
       letterSpacing: 0.8,
@@ -85,9 +85,9 @@ describe("Markdown rendering", () => {
       unorderedListStyle: "square" as const,
       strongStyle: "highlight" as const,
       headings: {
-        ...themes[0].headings,
+        ...defaultTheme.headings,
         h4: {
-          ...themes[0].headings.h4,
+          ...defaultTheme.headings.h4,
           fontSize: 21,
           align: "right" as const,
           decoration: "underline" as const,

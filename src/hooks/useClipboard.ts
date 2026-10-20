@@ -1,84 +1,47 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import type { ClipboardEvent as ReactClipboardEvent, Dispatch, SetStateAction } from "react";
-import { detectPasteContent } from "../markdown/pasteDetector";
-import { convertPastedHtml } from "../markdown/pasteConverter";
-import type { PreflightIssue } from "../types";
 import { findCodeBlockAtPosition } from "../markdown/codeBlock";
+import { convertPastedHtml } from "../markdown/pasteConverter";
+import { detectPasteContent } from "../markdown/pasteDetector";
+import type { Notify } from "./useToast";
 
 type UseClipboardOptions = {
   markdown: string;
   setMarkdown: Dispatch<SetStateAction<string>>;
   copyHtml: string;
   copyPlainText: string;
-  preflightErrors: PreflightIssue[];
   localImageCount: number;
   addImageFiles: (files: File[]) => Promise<void>;
+  notify: Notify;
 };
+
+export type CopyState = "idle" | "copied";
 
 export function useClipboard({
   markdown,
   setMarkdown,
   copyHtml,
   copyPlainText,
-  preflightErrors,
   localImageCount,
   addImageFiles,
+  notify,
 }: UseClipboardOptions) {
-  const pasteTimerRef = useRef<number | null>(null);
-  const [copied, setCopied] = useState("复制正文");
-  const [fieldCopied, setFieldCopied] = useState<string | null>(null);
-  const [pasteMessage, setPasteMessage] = useState("");
+  const [copyState, setCopyState] = useState<CopyState>("idle");
 
-  useEffect(
-    () => () => {
-      if (pasteTimerRef.current) window.clearTimeout(pasteTimerRef.current);
-    },
-    [],
-  );
-
-  function clearPasteMessage() {
-    if (pasteTimerRef.current) {
-      window.clearTimeout(pasteTimerRef.current);
-      pasteTimerRef.current = null;
-    }
-    setPasteMessage("");
-  }
-
-  function showPasteMessage(message: string) {
-    if (pasteTimerRef.current) window.clearTimeout(pasteTimerRef.current);
-    setPasteMessage(message);
-    pasteTimerRef.current = window.setTimeout(() => {
-      setPasteMessage("");
-      pasteTimerRef.current = null;
-    }, 3600);
-  }
-
-  function insertConvertedContent(textarea: HTMLTextAreaElement, content: string) {
+  function replaceSelection(textarea: HTMLTextAreaElement, content: string, separateBlocks: boolean) {
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
-    const multiline = content.includes("\n");
-    const leading = multiline && start > 0 && markdown[start - 1] !== "\n" ? "\n\n" : "";
-    const trailing = multiline && end < markdown.length && markdown[end] !== "\n" ? "\n\n" : "";
+    const leading = separateBlocks && start > 0 && markdown[start - 1] !== "\n" ? "\n\n" : "";
+    const trailing = separateBlocks && end < markdown.length && markdown[end] !== "\n" ? "\n\n" : "";
     const insertion = `${leading}${content}${trailing}`;
     setMarkdown(`${markdown.slice(0, start)}${insertion}${markdown.slice(end)}`);
     requestAnimationFrame(() => {
       textarea.focus();
-      const position = start + insertion.length - trailing.length;
-      textarea.selectionStart = position;
-      textarea.selectionEnd = position;
+      textarea.selectionStart = textarea.selectionEnd = start + insertion.length - trailing.length;
     });
   }
 
   async function copyForWechat() {
-    if (
-      preflightErrors.length &&
-      !window.confirm(
-        `发布前检查发现 ${preflightErrors.length} 个必须处理的问题：\n\n${preflightErrors
-          .map((issue) => `• ${issue.label}：${issue.detail}`)
-          .join("\n")}\n\n仍然复制正文吗？`,
-      )
-    )
-      return;
     try {
       if (typeof ClipboardItem !== "undefined" && navigator.clipboard.write) {
         await navigator.clipboard.write([
@@ -90,26 +53,28 @@ export function useClipboard({
       } else {
         await navigator.clipboard.writeText(copyPlainText);
       }
-      setCopied("已复制正文");
     } catch {
-      await navigator.clipboard.writeText(copyPlainText);
-      setCopied("已复制文本");
+      try {
+        await navigator.clipboard.writeText(copyPlainText);
+        notify("浏览器不允许写入富文本，已复制为纯文本", "warning");
+      } catch {
+        notify("复制失败：浏览器拒绝访问剪贴板", "error");
+        return;
+      }
     }
-    if (localImageCount) {
-      window.alert(
-        `正文已复制。本文有 ${localImageCount} 张本地图片未嵌入正文，复制内容中已使用图片 ID 占位。\n\n请在公众号后台按 ID 上传图片，并删除对应占位块。压缩后的图片可在“图片素材”区域下载。`,
+    setCopyState("copied");
+    window.setTimeout(() => setCopyState("idle"), 1800);
+    if (localImageCount)
+      notify(
+        `已复制。其中 ${localImageCount} 张本地图片以 ID 占位，请在公众号里手动上传替换（可在左下角「图片」中下载）。`,
+        "warning",
+        8000,
       );
-    }
-    window.setTimeout(() => setCopied("复制正文"), 1600);
-  }
-
-  async function copyPlainField(key: string, value: string) {
-    await navigator.clipboard.writeText(value);
-    setFieldCopied(key);
-    window.setTimeout(() => setFieldCopied(null), 1400);
+    else notify("已复制，去公众号编辑器粘贴即可", "success");
   }
 
   function handleEditorPaste(event: ReactClipboardEvent<HTMLTextAreaElement>) {
+    const textarea = event.currentTarget;
     const plainText = event.clipboardData.getData("text/plain");
     const html = event.clipboardData.getData("text/html");
     const imageFiles = Array.from(event.clipboardData.items)
@@ -118,41 +83,27 @@ export function useClipboard({
       .filter((file): file is File => Boolean(file));
     if (!plainText.trim() && !html.trim() && imageFiles.length) {
       event.preventDefault();
-      clearPasteMessage();
       void addImageFiles(imageFiles);
       return;
     }
 
-    const codeBlock = findCodeBlockAtPosition(markdown, event.currentTarget.selectionStart);
-    if (codeBlock && plainText) {
+    if (plainText && findCodeBlockAtPosition(markdown, textarea.selectionStart)) {
       event.preventDefault();
-      const start = event.currentTarget.selectionStart;
-      const end = event.currentTarget.selectionEnd;
-      const normalized = plainText.replace(/\r\n?/g, "\n");
-      setMarkdown(`${markdown.slice(0, start)}${normalized}${markdown.slice(end)}`);
-      requestAnimationFrame(() => {
-        event.currentTarget.focus();
-        event.currentTarget.selectionStart = event.currentTarget.selectionEnd = start + normalized.length;
-      });
-      showPasteMessage("已按代码块纯文本方式粘贴");
+      replaceSelection(textarea, plainText.replace(/\r\n?/g, "\n"), false);
       return;
     }
 
     const detection = detectPasteContent(plainText, html);
-    if (detection.type === "markdown" || detection.type === "plain-text") {
-      clearPasteMessage();
-      return;
-    }
+    if (detection.type === "markdown" || detection.type === "plain-text") return;
 
     const converted = convertPastedHtml(html);
     const content = converted.markdown || plainText;
     if (!content) return;
-
     event.preventDefault();
-    insertConvertedContent(event.currentTarget, content);
-    const prefix = detection.type === "word" ? "已将 Word 内容转换为 Markdown" : "检测到富文本，已转换为 Markdown";
-    showPasteMessage(`${prefix}${converted.skippedImages ? `；${converted.skippedImages} 张本地图片需重新上传` : ""}`);
+    replaceSelection(textarea, content, content.includes("\n"));
+    const prefix = detection.type === "word" ? "已将 Word 内容转换为 Markdown" : "已将富文本转换为 Markdown";
+    notify(`${prefix}${converted.skippedImages ? `，${converted.skippedImages} 张本地图片需重新添加` : ""}`, "info", 3600);
   }
 
-  return { copied, fieldCopied, pasteMessage, copyForWechat, copyPlainField, handleEditorPaste };
+  return { copyState, copyForWechat, handleEditorPaste };
 }
