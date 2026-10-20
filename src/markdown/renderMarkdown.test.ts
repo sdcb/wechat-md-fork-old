@@ -46,6 +46,35 @@ describe("Markdown rendering", () => {
     expect(template.content.querySelector("img")?.style.boxShadow).toContain("rgba");
   });
 
+  it("keeps ASCII diagrams in a non-wrapping monospace code block", () => {
+    const html = renderMarkdown(
+      "```text\n             应用程序\n                 │\n             Stable C ABI\n                 │\n            PP-OCR Core\n```",
+      themes[0],
+    );
+    const template = document.createElement("template");
+    template.innerHTML = html;
+    const pre = template.content.querySelector("pre")!;
+    const code = template.content.querySelector<HTMLElement>("pre code")!;
+    expect(pre.style.fontFamily).toContain("monospace");
+    expect(pre.style.whiteSpace).toBe("pre");
+    expect(pre.style.wordBreak).toBe("normal");
+    expect(code.style.fontFamily).toContain("monospace");
+    expect(code.textContent).toContain("Stable C ABI");
+  });
+
+  it("highlights known fenced languages with inline token styles", () => {
+    const html = renderMarkdown("```javascript\nconst answer = 42;\n```", themes[0]);
+    const template = document.createElement("template");
+    template.innerHTML = html;
+    expect(template.content.querySelector("[data-code-language='javascript']")).not.toBeNull();
+    expect(template.content.querySelector("span[data-code-token='keyword']")?.getAttribute("style")).toContain("color");
+  });
+
+  it("leaves text blocks unhighlighted", () => {
+    const html = renderMarkdown("```text\nconst answer = 42;\n```", themes[0]);
+    expect(html).not.toContain("data-code-token");
+  });
+
   it("applies expanded typography, heading and list settings", () => {
     const customTheme = {
       ...themes[0],

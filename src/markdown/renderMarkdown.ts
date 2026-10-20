@@ -4,6 +4,10 @@ import type { Theme, ThemeHeadingLevel } from "../types";
 import { escapeHtml, localAssetPattern, prepareAssetMarkdown } from "./assets";
 import { replaceMarkdownLinksWithPlainText } from "./links";
 import { prepareWechatHtml } from "./wechat";
+import { highlightCodeBlocks } from "./codeHighlight";
+
+const codeFontFamily =
+  "'Sarasa Mono SC','Noto Sans Mono CJK SC','Source Han Mono','SFMono-Regular',Consolas,'Liberation Mono','Courier New',monospace";
 
 export function getThemeFontFamily(theme: Theme) {
   const families: Record<Theme["fontFamily"], string> = {
@@ -124,7 +128,7 @@ export function renderMarkdown(markdown: string, theme: Theme, assetUrls: Record
     .forEach((element) =>
       element.setAttribute(
         "style",
-        `padding:2px 6px;border-radius:4px;background:${theme.codeBg};color:${theme.heading};font-family:SFMono-Regular,Consolas,Liberation Mono,Courier New,monospace;font-size:90%;word-break:break-word;`,
+        `padding:2px 6px;border-radius:4px;background:${theme.codeBg};color:${theme.heading};font-family:${codeFontFamily};font-size:90%;word-break:break-word;`,
       ),
     );
   template.content.querySelectorAll<HTMLElement>("pre").forEach((element) => {
@@ -132,11 +136,14 @@ export function renderMarkdown(markdown: string, theme: Theme, assetUrls: Record
     const bordered = theme.codeStyle === "bordered";
     element.setAttribute(
       "style",
-      `margin:8px 0 22px;padding:16px;border-radius:${theme.radius}px;background:${dark ? "#1f2937" : bordered ? "#ffffff" : theme.codeBg};border:1px solid ${dark ? "#374151" : theme.border};overflow-x:auto;color:${dark ? "#f8fafc" : theme.heading};font-size:14px;line-height:1.7;white-space:pre;`,
+      `margin:8px 0 22px;padding:16px;border-radius:${theme.radius}px;background:${dark ? "#1f2937" : bordered ? "#ffffff" : theme.codeBg};border:1px solid ${dark ? "#374151" : theme.border};overflow-x:auto;color:${dark ? "#f8fafc" : theme.heading};font-family:${codeFontFamily};font-size:${theme.codeFontSize ?? 14}px;line-height:${theme.codeLineHeight ?? 1.7};white-space:pre;word-break:normal;overflow-wrap:normal;font-variant-ligatures:none;`,
     );
     element
       .querySelector<HTMLElement>("code")
-      ?.setAttribute("style", "padding:0;border-radius:0;background:transparent;color:inherit;font:inherit;white-space:pre;");
+      ?.setAttribute(
+        "style",
+        `padding:0;border-radius:0;background:transparent;color:inherit;font-family:${codeFontFamily};font-size:inherit;line-height:inherit;font-weight:inherit;white-space:pre;word-break:normal;overflow-wrap:normal;font-variant-ligatures:none;`,
+      );
   });
   template.content
     .querySelectorAll<HTMLElement>("blockquote")
@@ -250,6 +257,8 @@ export function renderMarkdown(markdown: string, theme: Theme, assetUrls: Record
     table.replaceWith(wrapper);
     wrapper.append(table);
   });
+
+  highlightCodeBlocks(template.content, theme);
 
   return template.innerHTML;
 }

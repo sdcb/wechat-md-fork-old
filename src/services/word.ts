@@ -174,6 +174,18 @@ const headingLevels = [
 ];
 
 const cleanColor = (color: string) => color.replace("#", "").toUpperCase();
+function cssColorToHex(value: string) {
+  const normalized = value.trim();
+  if (/^#[\da-f]{6}$/i.test(normalized)) return normalized.slice(1).toUpperCase();
+  const rgb = normalized.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})/i);
+  if (rgb)
+    return rgb
+      .slice(1, 4)
+      .map((channel) => Number(channel).toString(16).padStart(2, "0"))
+      .join("")
+      .toUpperCase();
+  return undefined;
+}
 const pxToHalfPoints = (pixels: number) => Math.max(16, Math.round(pixels * 1.5));
 const pxToTwips = (pixels: number) => Math.max(0, Math.round(pixels * 15));
 const mmToTwips = (millimeters: number) => Math.round(millimeters * 56.6929);
@@ -332,13 +344,26 @@ function textRun(text: string, theme: Theme, style: InlineStyle = {}) {
   });
 }
 
+function textRuns(text: string, theme: Theme, style: InlineStyle = {}): TextRun[] {
+  const parts = text.replace(/\r\n?/g, "\n").split("\n");
+  return parts.flatMap((part, index) =>
+    index ? [new TextRun({ break: 1 }), ...(part ? [textRun(part, theme, style)] : [])] : part ? [textRun(part, theme, style)] : [],
+  );
+}
+
+function colorFromElement(element: HTMLElement) {
+  const value = element.style.color.trim();
+  const hex = value ? cssColorToHex(value) : undefined;
+  return hex;
+}
+
 async function inlineChildren(
   node: Node,
   theme: Theme,
   style: InlineStyle = {},
   settings: WordExportSettings = defaultWordExportSettings,
 ): Promise<WordChild[]> {
-  if (node.nodeType === Node.TEXT_NODE) return node.textContent ? [textRun(node.textContent, theme, style)] : [];
+  if (node.nodeType === Node.TEXT_NODE) return node.textContent ? textRuns(node.textContent, theme, style) : [];
   if (!(node instanceof HTMLElement)) return [];
   if (node.tagName === "BR") return [new TextRun({ break: 1 })];
   if (node.tagName === "IMG") {
@@ -364,7 +389,7 @@ async function inlineChildren(
     italics: style.italics || node.tagName === "EM" || node.tagName === "I",
     strike: style.strike || node.tagName === "DEL" || node.tagName === "S",
     font: isInlineCode || node.tagName === "PRE" ? "Consolas" : style.font,
-    color: isInlineCode ? cleanColor(theme.heading) : style.color,
+    color: style.color ?? (isInlineCode ? cleanColor(theme.heading) : colorFromElement(node)),
     shading: isInlineCode ? cleanColor(theme.codeBg) : style.shading,
   };
   return (await Promise.all(Array.from(node.childNodes).map((child) => inlineChildren(child, theme, nextStyle, settings)))).flat();
@@ -546,12 +571,11 @@ async function codeParagraph(node: Element, theme: Theme) {
     color: dark ? "E5E7EB" : cleanColor(theme.text),
     size: Math.max(18, pxToHalfPoints(theme.bodyFontSize) - 2),
   };
-  const lines = (node.textContent ?? "").replace(/\r\n?/g, "\n").split("\n");
-  const children: WordChild[] = [];
-  lines.forEach((line, index) => {
-    if (index > 0) children.push(new TextRun({ break: 1 }));
-    if (line) children.push(textRun(line, theme, codeStyle));
-  });
+  const children = (
+    await Promise.all(
+      Array.from(node.querySelector("code")?.childNodes ?? node.childNodes).map((child) => inlineChildren(child, theme, codeStyle)),
+    )
+  ).flat();
   return new Paragraph({
     children: children.length ? children : [textRun("", theme, { font: "Consolas" })],
     spacing: { before: 100, after: pxToTwips(theme.paragraphSpacing), line: 280 },

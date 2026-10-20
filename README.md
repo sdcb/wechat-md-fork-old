@@ -1,12 +1,23 @@
 # 公众号排版助手
 
-一个面向微信公众号后台的 Markdown 排版与发布辅助工具。它帮助你编辑文章、预览排版、复制富文本正文，并将文章库保存在当前浏览器中。当前正式版本为 **v0.5.1**。
+一个面向微信公众号后台的 Markdown 排版与发布辅助工具。它帮助你编辑文章、预览排版、复制富文本正文，并将文章库保存在当前浏览器中。当前开发版本为 **v0.6.0**。
 
 纯前端 `Vite + React + TypeScript` 应用，数据仅存储在浏览器中。
+
+👉 在线体验：https://wechat-article-formatter.lxw112190.workers.dev
+
+👉 桌面版下载：[GitHub Releases](https://github.com/lxw112190/wechat-article-formatter/releases)
+
+👉 桌面应用打包工具：[lw.Web2App](https://github.com/lxw112190/lw.Web2App)
+
+Author: 天天代码码天天 | QQ: 819069052<br>
+QQ Group: C# 人工智能实践 | 群号: 758616458
 
 ## 功能
 
 - CommonMark + GFM Markdown 解析，支持六级标题、嵌套列表、任务列表、表格、删除线、代码、自动链接、HTML 块等标准语法。
+- 技术文章代码块增强：支持 JavaScript、TypeScript、HTML/XML、CSS、JSON、Python、Java、C/C++、C#、Go、Rust、SQL、Shell、PowerShell、YAML 和 Markdown 等语言，提供 GitHub/VS Code 内联语法高亮、等宽字体和 ASCII 图表不换行保护。
+- 代码块插入支持语言选择和安全整理；代码块内粘贴按纯文本处理，保留缩进、空格和换行。
 - Markdown 编辑、手机预览和富文本正文复制，编辑区与预览区可开启或关闭双向同步滚动。
 - 文章大纲导航：大纲位于 Markdown 编辑器左侧并可手动折叠，窄屏时显示为覆盖式面板；实时识别 ATX 与 Setext 标题并忽略代码块内容，点击后同时定位编辑区与手机预览。
 - 发布前检查：实时检查标题、正文长度、标题层级、本地图片素材、图片说明、HTTP/空链接、草稿占位词、表格和复杂 HTML；存在严重问题时，复制正文前会再次确认。
@@ -30,6 +41,28 @@
 - 导出 Word 兼容 HTML：复用当前主题与页面设置，外观更接近网页预览和 PDF；可用 Word/WPS 打开后另存为 `.docx`。
 - 微信公众号复制兼容：公众号文章链接保持标准链接交给微信识别；普通外链、HTTP 链接和邮箱链接复制时保留可见 URL；任务列表转换为 `☑ / ☐`，多级列表复制时保持内容顺序。
 - Markdown 优先智能粘贴：Markdown 源码和普通文本原样粘贴；Word 内容自动转换为 Markdown；网页富文本自动清理并转换为 Markdown；纯图片继续进入图片素材库。
+
+## 桌面应用与 lw.Web2App
+
+本项目是纯前端 Web 应用，同时也是 [lw.Web2App](https://github.com/lxw112190/lw.Web2App) 的 CI 集成测试项目。
+
+lw.Web2App 是一个轻量级跨平台网页桌面应用打包工具，可以将 HTML、Vue、React、Vite 等静态项目打包为单文件桌面应用。目前稳定支持 Windows 10/11 x64，并提供 Ubuntu 22.04/24.04 x86_64 Beta；Windows 使用 WebView2，Linux 使用 WebKitGTK。
+
+lw.Web2App 的 CI 会自动检出本项目，执行 `npm ci` 和 `npm run build` 生成 `dist`，再将其打包为 Windows EXE 或 Linux 可执行文件，并检查 Payload 完整性、静态资源、SPA fallback 和启动流程。因此，本项目也是 lw.Web2App 持续验证真实 React/Vite 应用兼容性的示例。
+
+本项目自己的 CI 也会使用经过 SHA-256 校验的 lw.Web2App 正式版生成 Windows x64 单文件 EXE。推送 `v*` 标签时，GitHub Release 会同时包含网页版 ZIP、Windows EXE 和校验文件。Windows 桌面版需要系统已安装 Microsoft WebView2 Evergreen Runtime。
+
+开发者可以在 Windows 本地完成打包：
+
+```powershell
+npm ci
+npm run build
+npm run package:windows -- -Web2AppRoot "C:\path\to\lw.Web2App"
+```
+
+生成文件位于 `artifacts/wechat-article-formatter.exe`。打包脚本会自动读取 `package.json` 的版本号，使用仓库内的专属图标，写入 Windows 文件属性，并调用 `inspect` 验证 Payload 完整性。也可以设置环境变量 `LW_WEB2APP_ROOT`，此后直接运行 `npm run package:windows`。
+
+> 网页版、Windows WebView2 和 Linux WebKitGTK 使用不同的本地存储环境，数据不会自动同步；跨环境迁移前，请先导出“完整备份 ZIP”，再在目标环境中恢复。
 
 ## 快速开始
 
@@ -141,6 +174,7 @@ JSON 和单篇 `.md` 文件不包含图片二进制，仅适合轻量导出或�
 - IndexedDB（本地图片 Blob 存储）
 - Vitest（纯函数单元测试）
 - Playwright（核心用户流程端到端测试）
+- [lw.Web2App](https://github.com/lxw112190/lw.Web2App)（Windows/Linux 桌面应用打包与 CI 集成测试）
 - ESLint + Prettier（代码质量与格式）
 - 模块化原生 CSS
 - Browser `localStorage`
@@ -148,6 +182,12 @@ JSON 和单篇 `.md` 文件不包含图片二进制，仅适合轻量导出或�
 ## 截图
 
 ![主界面](./assets/main.jpg)
+
+## 赞助
+
+如果这个项目对你有帮助，欢迎使用微信赞助支持项目持续维护与改进。
+
+<img src="./assets/sponsor.jpg" alt="微信赞助码" width="360">
 
 ## License
 
